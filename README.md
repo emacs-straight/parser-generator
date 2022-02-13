@@ -13,8 +13,12 @@ We use a regular-language based lexical analyzer that can be implemented by a fi
 
 ## Syntax Analysis / Parser
 
-We use deterministic push down transducer (PDT) based algorithms. Read more [here](docs/Syntax-Analysis.md).
+We use deterministic push down transducer (DPDT) based algorithms. Read more [here](docs/Syntax-Analysis.md).
 
 ## Test
 
 Run in terminal `make clean && make tests && make compile`
+
+## TODO / Roadmap / Issues
+
+Look here [here](TODO.md).

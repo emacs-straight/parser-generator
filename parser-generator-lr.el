@@ -1,6 +1,6 @@
 ;;; parser-generator-lr.el --- LR(k) Parser Generator -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2021  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2022  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -602,12 +602,24 @@
                                                (gethash
                                                 index-hash-key
                                                 index-symbols)))
-                                          (error
-                                           "Reduce/%S conflict for %S in state %S"
-                                           (car (cdr conflicted-item))
-                                           u
-                                           goto-index
-                                           ))))
+                                          (if (and
+                                               parser-generator-lr--allow-default-conflict-resolution
+                                               (equal
+                                                'shift
+                                                (car (cdr conflicted-item))))
+                                              (progn
+                                                (parser-generator--debug
+                                                 (message
+                                                  "Shift takes precedence over reduce by default"))
+                                                (setq
+                                                 skip-symbol
+                                                 t))
+                                            (error
+                                             "Reduce/%S conflict for %S in state %S"
+                                             (car (cdr conflicted-item))
+                                             u
+                                             goto-index
+                                             )))))
 
                                     (unless
                                         (or
@@ -682,6 +694,11 @@
         (parser-generator--debug
          (message "%s actions %s" goto-index action-table))
         (when action-table
+          (setq
+           action-table
+           (sort
+            action-table
+            'parser-generator--sort-list))
           (message
            "ACTION-TABLE (%d): %S\n"
            goto-index
@@ -689,11 +706,13 @@
           (push
            (list
             goto-index
-            (sort action-table 'parser-generator--sort-list))
+            action-table)
            action-tables))))
     (unless found-accept
       (error "Failed to find an accept action in the generated action-tables!"))
-    (setq action-tables (nreverse action-tables))
+    (setq
+     action-tables
+     (nreverse action-tables))
     (setq
      parser-generator-lr--action-tables
      (make-hash-table :test 'equal))
@@ -1474,7 +1493,7 @@
           parser-generator--look-ahead-number
           parser-generator--eof-identifier)))
     (parser-generator--debug
-     (message "x: %s" x))
+     (message "x: %S" x))
 
     ;; TODO Use caches to optimize this loop?
     (dolist (lr-item previous-lr-item)
@@ -1558,7 +1577,7 @@
                   lr-item-suffix-first
                   lr-item-suffix)
                  (message
-                  "lr-item-suffix-rest: %s from %s + %s"
+                  "lr-item-suffix-rest: %s from %s + %s\n"
                   lr-item-suffix-rest
                   (cdr lr-item-suffix)
                   (nth 3 lr-item)))

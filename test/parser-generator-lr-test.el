@@ -1,6 +1,6 @@
 ;; parser-generator-lr-test.el --- Tests for LR(k) Parser Generator -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2021  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2022  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -374,9 +374,7 @@
   (setq
    parser-generator-lr--context-sensitive-precedence-attribute
    nil)
-  (setq
-   parser-generator--e-identifier
-   '%empty)
+  (parser-generator-set-e-identifier '%empty)
   (parser-generator-set-look-ahead-number 1)
   (setq
    parser-generator--global-attributes
@@ -670,9 +668,7 @@
   (message "Passed cyclical grammar")
 
   ;; Test e-identifier in midst of grammar below
-  (setq
-   parser-generator--e-identifier
-   'e)
+  (parser-generator-set-e-identifier 'e)
   (parser-generator-set-grammar
    '((Sp S E) (a b) ((Sp S) (S (S a E b)) (S e) (E e)) Sp))
   (parser-generator-set-look-ahead-number 1)
@@ -691,9 +687,7 @@
   (message "Passed example with e-identifier in middle of rule")
 
   ;; Another test with e-identifier inside rule here
-  (setq
-   parser-generator--e-identifier
-   '%empty)
+  (parser-generator-set-e-identifier '%empty)
   (parser-generator-set-grammar
    '(
      (Sp S A B C)
@@ -935,9 +929,7 @@
   (message "Started tests for (parser-generator-lr-parse)")
 
   (parser-generator-set-look-ahead-number 1)
-  (setq
-   parser-generator--e-identifier
-   'e)
+  (parser-generator-set-e-identifier 'e)
   (parser-generator-set-grammar
    '((Sp S) (a b) ((Sp S) (S (S a S b)) (S e)) Sp))
   (parser-generator-set-look-ahead-number 1)
@@ -1047,11 +1039,9 @@
   (message "Passed incremental-tests")
 
 
-  ;; TODO Test left-recursive grammar from PHP 8.0 here
+  ;; Test left-recursive grammar from PHP 8.0 here
   (parser-generator-set-look-ahead-number 1)
-  (setq
-   parser-generator--e-identifier
-   '%empty)
+  (parser-generator-set-e-identifier '%empty)
   (parser-generator-set-grammar
    '(
      (start expr match match_arm_list non_empty_match_arm_list match_arm match_arm_cond_list possible_comma)
@@ -1174,6 +1164,120 @@
       (kill-buffer)
       (message "Passed test PHP 8.0 match grammar 2")
       ))
+
+  ;; Test another left-recursive grammar from PHP 8.0 here
+  (parser-generator-set-look-ahead-number 1)
+  (parser-generator-set-e-identifier '%empty)
+  (parser-generator-set-grammar
+   '(
+     (start inner_statement_list statement switch_case_list case_list case_separator)
+     (T_SWITCH T_ECHO T_CONSTANT_ENCAPSED_STRING ";" ":" "{" "}" T_CASE)
+     (
+      (start
+       inner_statement_list
+       )
+      (inner_statement_list
+       (inner_statement_list statement)
+       %empty
+       )
+      (statement
+       (T_SWITCH switch_case_list)
+       (T_ECHO T_CONSTANT_ENCAPSED_STRING ";")
+       )
+      (switch_case_list
+       ("{" case_list "}")
+       ("{" ";" case_list "}")
+       )
+      (case_list
+       %empty
+       (case_list T_CASE case_separator inner_statement_list)
+       )
+      (case_separator
+       ":"
+       ";"
+       )
+      )
+     start
+     )
+   )
+  (parser-generator-set-look-ahead-number 1)
+  (parser-generator-process-grammar)
+  (parser-generator-lr-generate-parser-tables)
+  (setq
+   parser-generator-lex-analyzer--function
+   (lambda (index)
+     (with-current-buffer "*PHP8.0*"
+       (let ((token))
+         (goto-char index)
+         (cond
+          ((looking-at "[ \n\t]+")
+           (setq
+            parser-generator-lex-analyzer--move-to-index-flag
+            (match-end 0)))
+          ((looking-at "\\(\".+\"\\)")
+           (setq
+            token
+            `(
+              T_CONSTANT_ENCAPSED_STRING
+              ,(match-beginning 0)
+              . ,(match-end 0)
+              )
+            )
+           )
+          ((looking-at "case")
+           (setq
+            token
+            `(
+              T_CASE
+              ,(match-beginning 0)
+              . ,(match-end 0))
+            )
+           )
+          ((looking-at "switch")
+           (setq
+            token
+            `(
+              T_SWITCH
+              ,(match-beginning 0)
+              . ,(match-end 0))
+            )
+           )
+          ((looking-at "echo")
+           (setq
+            token
+            `(
+              T_ECHO
+              ,(match-beginning 0)
+              . ,(match-end 0))
+            )
+           )
+          ((looking-at "[;{}:]")
+           (setq
+            token
+            `(
+              ,(match-string-no-properties 0)
+              ,(match-beginning 0)
+              . ,(match-end 0))
+            )
+           )
+          )
+         token
+         ))))
+  (let ((buffer (generate-new-buffer "*PHP8.0*")))
+    (with-current-buffer buffer
+      (kill-region (point-min) (point-max))
+      (insert "switch\n{\n    case:\n        echo \"hello\";\n}\n")
+      (parser-generator-lr--parse)
+      (kill-buffer)
+      (message "Passed test PHP 8.0 switch case grammar 1")
+      ))
+  (let ((buffer (generate-new-buffer "*PHP8.0*")))
+    (with-current-buffer buffer
+      (kill-region (point-min) (point-max))
+      (insert "switch\n{\n    case:\n    case:\n    case;\n    case;\n        echo \"hello\";\n}\n")
+      (parser-generator-lr--parse)
+      (kill-buffer)
+      (message "Passed test PHP 8.0 switch case grammar 2")))
 
   (message "Passed tests for (parser-generator-lr--parse)"))
 
@@ -1381,19 +1485,18 @@
      lr-items)
     (parser-generator--debug
      (message
-      "Action-tables k = 2: %s"
+      "Action-tables k = 2: %S"
       (parser-generator-lr--get-expanded-action-tables)))
-
     (should
      (equal
       '(
         (0 (((a b) shift)))
         (1 ((($ $) reduce 2) ((a b) shift)))
         (2 ((($ $) accept)))
-        (3 (((b $) shift) ((b c) shift) ((b a) shift)))
-        (4 ((($ $) reduce 6) ((a b) reduce 6) ((a $) shift) ((a c) shift) ((a a) shift) ((c a) shift) ((c $) shift)))
+        (3 (((b c) shift) ((b a) shift) ((b $) shift)))
+        (4 ((($ $) reduce 6) ((a b) reduce 6) ((a c) shift) ((a a) shift) ((a $) shift) ((c a) shift) ((c $) shift)))
         (5 ((($ $) reduce 3) ((a b) reduce 3)))
-        (6 ((($ $) reduce 6) ((a b) reduce 6) ((a $) shift) ((a c) shift) ((a a) shift) ((c a) shift) ((c $) shift)))
+        (6 ((($ $) reduce 6) ((a b) reduce 6) ((a c) shift) ((a a) shift) ((a $) shift) ((c a) shift) ((c $) shift)))
         (7 ((($ $) reduce 5) ((a b) reduce 5)))
         (8 ((($ $) reduce 4) ((a b) reduce 4)))
         (9 ((($ $) reduce 1)))
@@ -1519,7 +1622,18 @@
   ;; (5) B → 1
 
   (parser-generator-set-grammar
-   '((S E B) ("*" "+" "0" "1") ((S (E $)) (E (E "*" B) (E "+" B) (B)) (B ("0") ("1"))) S))
+   '(
+     (S E B)
+     ("*" "+" "0" "1")
+     (
+      (S (E $))
+      (E (E "*" B) (E "+" B) (B))
+      (B ("0") ("1"))
+      )
+     S
+     )
+   )
+  (parser-generator-set-e-identifier nil)
   (parser-generator-set-look-ahead-number 0)
   (parser-generator-process-grammar)
 
@@ -1631,7 +1745,7 @@
         (7 nil)
         (8 nil))
       (parser-generator-lr--get-expanded-goto-tables)))
-    (message "Passed GOTO-tables k = 2")
+    (message "Passed GOTO-tables k = 0")
 
     ;;   	*  	+  	0  	1  	$
     ;; 0 	   	   	s1 	s2 	
@@ -1790,9 +1904,7 @@
        )
       Sp))
     (parser-generator-set-look-ahead-number 1)
-    (setq
-     parser-generator--e-identifier
-     'e)
+    (parser-generator-set-e-identifier 'e)
     (parser-generator-process-grammar)
     (parser-generator-lr-generate-parser-tables)
 

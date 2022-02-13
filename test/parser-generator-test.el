@@ -1,6 +1,6 @@
 ;;; parser-generator-test.el --- Tests for Parser Generator -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2021  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2022  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -191,6 +191,24 @@
 
   (message "Passed tests for (parser-generator--follow)"))
 
+(defun parser-generator-test--generate-f-sets ()
+  "Test `parser-generator--first'."
+  (message "Starting tests for (parser-generator-test--generate-f-sets)")
+
+  (parser-generator-set-e-identifier 'e)
+  (parser-generator-set-grammar '((Sp S) (a b) ((Sp S) (S (S a S b)) (S e)) Sp))
+  (parser-generator-set-look-ahead-number 1)
+  (parser-generator-process-grammar)
+  (parser-generator--generate-f-sets)
+  (should
+   (equal
+    '((e a) (e))
+    (gethash
+     (list 'S)
+     parser-generator--f-sets)))
+
+  (message "Passed tests for (parser-generator-test--generate-f-sets)"))
+
 (defun parser-generator-test--first ()
   "Test `parser-generator--first'."
   (message "Starting tests for (parser-generator--first)")
@@ -279,6 +297,14 @@
   (parser-generator-set-grammar '((S A B) ("c" "d") ((S A) (A B) (B "c" "d")) S))
   (parser-generator-set-look-ahead-number 1)
   (parser-generator-process-grammar)
+  (should
+   (equal
+    '(("c") ("d"))
+    (parser-generator--first 'B)))
+  (should
+   (equal
+    '(("c") ("d"))
+    (parser-generator--first 'A)))
   (should
    (equal
     '(("c") ("d"))
@@ -372,7 +398,7 @@
   (parser-generator-process-grammar)
   (should
    (equal
-    '((a a b) (a a e) (a b a) (a b e) (a e e) (e e e))
+    '((a a a) (a a b) (a a e) (a b a) (a b e) (a e e) (e e e))
     (parser-generator--first 'S)))
   (message "Passed first 8 with complex grammar with starting e-identifier variant 2")
 
@@ -381,7 +407,7 @@
   (parser-generator-process-grammar)
   (should
    (equal
-    '((a a b b) (a a e e) (a b a a) (a b a b) (a b a e) (a b e e) (a e e e) (e e e e))
+    '((a a a a) (a a a b) (a a a e) (a a b a) (a a b b) (a a e e) (a b a a) (a b a b) (a b a e) (a b e e) (a e e e) (e e e e))
     (parser-generator--first 'S)))
   (message "Passed first 9 with complex grammar with starting e-identifier variant 2")
 
@@ -430,6 +456,55 @@
     '((b) (e))))
   (message "Passed first 12 with multiple non-terminals and e-identifiers")
 
+  (parser-generator-set-look-ahead-number 1)
+  (parser-generator-set-e-identifier '%empty)
+  (parser-generator-set-grammar
+   '(
+     (start inner_statement_list statement switch_case_list case_list case_separator)
+     (T_SWITCH T_ECHO T_CONSTANT_ENCAPSED_STRING ";" ":" "{" "}" T_CASE)
+     (
+      (start
+       inner_statement_list
+       )
+      (inner_statement_list
+       (inner_statement_list statement)
+       %empty
+       )
+      (statement
+       (T_SWITCH switch_case_list)
+       (T_ECHO T_CONSTANT_ENCAPSED_STRING ";")
+       )
+      (switch_case_list
+       ("{" case_list "}")
+       ("{" ";" case_list "}")
+       )
+      (case_list
+       %empty
+       (case_list T_CASE case_separator inner_statement_list)
+       )
+      (case_separator
+       ":"
+       ";"
+       )
+      )
+     start
+     )
+   )
+  (parser-generator-set-look-ahead-number 1)
+  (parser-generator-process-grammar)
+  (should
+   (equal
+    (parser-generator--first '(inner_statement_list T_CASE))
+    '((%empty) (T_CASE) (T_ECHO) (T_SWITCH))))
+  (should
+   (equal
+    (parser-generator--first '(inner_statement_list inner_statement_list T_CASE))
+    '((%empty) (T_CASE) (T_ECHO) (T_SWITCH))))
+  (should
+   (equal
+    (parser-generator--first '(inner_statement_list inner_statement_list inner_statement_list T_CASE))
+    '((%empty) (T_CASE) (T_ECHO) (T_SWITCH))))
+
   (message "Passed tests for (parser-generator--first)"))
 
 (defun parser-generator-test--e-free-first ()
@@ -437,6 +512,7 @@
   (message "Starting tests for (parser-generator--e-free-first)")
 
   ;; Example 5.28 p 382
+  (parser-generator-set-e-identifier 'e)
   (parser-generator-set-grammar '((S A B C) (a b c) ((S (A B)) (A (B a) e) (B (C b) C) (C c e)) S))
   (parser-generator-set-look-ahead-number 2)
   (parser-generator-process-grammar)
@@ -491,9 +567,18 @@
   (message "Passed empty-free-first 2 with trailing e-identifier 2")
   (should
    (equal
-    '((a a) (a e))
+    '((a a) (a b) (a e))
     (parser-generator--e-free-first '(a S b))))
   (message "Passed empty-free-first 2 with trailing e-identifier 1")
+
+  (parser-generator-set-grammar
+   '((Sp S R T) (a b c) ((Sp S) (S (R S) (R)) (R (a b T)) (T (a T) (c) (e))) Sp))
+  (parser-generator-set-look-ahead-number 2)
+  (parser-generator-process-grammar)
+  (should
+   (equal
+    '((a a) (a c) (a e) (c e))
+    (parser-generator--e-free-first 'T)))
 
   (message "Passed tests for (parser-generator--empty-free-first)"))
 
@@ -988,6 +1073,7 @@
   (parser-generator-test--valid-production-p)
   (parser-generator-test--valid-sentential-form-p)
   (parser-generator-test--valid-terminal-p)
+  (parser-generator-test--generate-f-sets)
 
   ;; Algorithms
   (parser-generator-test--first)
