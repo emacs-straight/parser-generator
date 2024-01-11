@@ -1,6 +1,6 @@
 ;;; parser-generator-lr-export.el --- Export LR(k) Parser -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2022  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2024  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -147,21 +147,41 @@
         namespace
         parser-generator--look-ahead-number))
 
-      (insert "\n;;; Local Variables:\n\n")
+      ;; Lex-Analyzer Initial Index
+      (insert
+       (format
+        "(defvar\n  %s-lex-analyzer--index-init\n  %S\n  \"Initial value of index.\")\n\n"
+        namespace
+        parser-generator-lex-analyzer--index-init))
 
-      ;; Index
+      ;; Lex-Analyzer Initial State
+      (insert
+       (format
+        "(defvar\n  %s-lex-analyzer--state-init\n  %S\n  \"Initial value of state.\")\n\n"
+        namespace
+        parser-generator-lex-analyzer--state-init))
+
+      (insert "\n;;; Buffer-Local Variables:\n\n\n")
+
+      ;; Lex-Analyzer Buffered Response
+      (insert
+       (format
+        "(defvar-local\n  %s-lex-analyzer--buffered-response\n  nil\n  \"Buffered tokens of lex-analyzer.\")\n\n"
+        namespace))
+
+      ;; Lex-Analyzer Index
       (insert
        (format
         "(defvar-local\n  %s-lex-analyzer--index\n  0\n  \"The current index of the lex-analyzer.\")\n\n"
         namespace))
 
-      ;; Move to index flag
+      ;; Lex-Analyzer State
       (insert
        (format
-        "(defvar-local\n  %s-lex-analyzer--move-to-index-flag\n  nil\n  \"Non-nil means move index to value.\")\n\n"
+        "(defvar-local\n  %s-lex-analyzer--state\n  nil\n  \"The current state of the lex-analyzer.\")\n\n"
         namespace))
 
-      (insert "\n;;; Variable Functions:\n\n")
+      (insert "\n;;; Variable Functions:\n\n\n")
 
       ;; Lex-Analyzer Get Function
       (insert
@@ -195,7 +215,7 @@
 
       (insert "\n;;; Functions:\n\n")
 
-      (insert "\n;;; Functions for Lex-Analyzer:\n\n")
+      (insert "\n;;; Functions for Lex-Analyzer:\n\n\n")
 
       ;; Lex-Analyzer Get Function
       (insert
@@ -231,12 +251,22 @@
   ()
   \"Reset Lex-Analyzer.\"
   (setq
+    %s-lex-analyzer--buffered-response
+    (make-hash-table :test 'equal))
+  (setq
     %s-lex-analyzer--index
-    1)
+    %s-lex-analyzer--index-init)
+  (setq
+    %s-lex-analyzer--state
+    %s-lex-analyzer--state-init)
   (when
     %s-lex-analyzer--reset-function
     (funcall
       %s-lex-analyzer--reset-function)))\n"
+               namespace
+               namespace
+               namespace
+               namespace
                namespace
                namespace
                namespace
@@ -250,56 +280,48 @@
   ()
   \"Peek next look-ahead number of tokens via lex-analyzer.\"
   (let ((look-ahead)
-        (look-ahead-length 0)
-        (index %s-lex-analyzer--index)
+        (look-ahead-length
+          0)
+        (index
+          %s-lex-analyzer--index)
+        (state
+          %s-lex-analyzer--state)
         (k (max
             1
             %s--look-ahead-number)))
     (while (<
             look-ahead-length
             k)
-      (condition-case error
-          (progn
-            (setq-local
-              %s-lex-analyzer--move-to-index-flag
-              nil)
-            (let ((next-look-ahead
-                   (funcall
-                    %s-lex-analyzer--function
-                    index)))
-                  (if %s-lex-analyzer--move-to-index-flag
-                    (setq
-                     index
-                     %s-lex-analyzer--move-to-index-flag)
-              (if next-look-ahead
-                  (progn
-                    (unless (listp (car next-look-ahead))
-                      (setq next-look-ahead (list next-look-ahead)))
-                    (dolist (next-look-ahead-item next-look-ahead)
-                      (when (<
-                             look-ahead-length
-                             k)
-                        (push next-look-ahead-item look-ahead)
-                        (setq look-ahead-length (1+ look-ahead-length))
-                        (setq index (cdr (cdr next-look-ahead-item))))))
-                (push (list %s--eof-identifier) look-ahead)
-                (setq look-ahead-length (1+ look-ahead-length))
-                (setq index (1+ index))))))"
+      (let* ((result-list
+              (%s-lex-analyzer--get-buffered-lex
+               index
+               state))
+             (token
+              (nth 0 result-list))
+             (new-index
+              (nth 2 result-list))
+             (new-state
+              (nth 3 result-list)))
+        (push
+         token
+         look-ahead)
+        (setq
+         look-ahead-length
+         (1+ look-ahead-length))
+        (setq
+         index
+         new-index)
+        (setq
+         state
+         new-state)))
+
+    (nreverse look-ahead)))\n"
                namespace
                namespace
                namespace
                namespace
                namespace
-               namespace
-               namespace
-               namespace))
-      (insert "
-        (error
-         (error
-          \"Lex-analyze failed to peek next look-ahead at %s, error: %s\"
-          index
-          error))))
-    (nreverse look-ahead)))\n")
+               ))
 
       ;; Lex-Analyzer Pop Token
       (insert
@@ -307,37 +329,105 @@
 (defun
   %s-lex-analyzer--pop-token ()
   \"Pop next token via lex-analyzer.\"
-  (let ((continue t)
-        (tokens))
-    (while continue
-      (condition-case error
-          (progn
-            (setq-local
-              %s-lex-analyzer--move-to-index-flag
-              nil)
-            (let ((token
-                   (funcall
-                    %s-lex-analyzer--function
-                    %s-lex-analyzer--index)))
-              (if %s-lex-analyzer--move-to-index-flag
-                  (progn
-                    (setq-local
-                     %s-lex-analyzer--index
-                     %s-lex-analyzer--move-to-index-flag))
-              (when token
-                (unless (listp (car token))
-                  (setq token (list token)))
-                (let ((first-token (car token)))
-                  (setq
-                   %s-lex-analyzer--index
-                   (cdr (cdr first-token)))
-                  (push 
-                   first-token 
-                   tokens)))
-                (setq
-                 continue
-                 nil))))"
+  (let* ((result-list
+          (%s-lex-analyzer--get-buffered-lex
+           %s-lex-analyzer--index
+           %s-lex-analyzer--state))
+         (token
+          (nth 0 result-list))
+         (new-index
+          (nth 2 result-list))
+         (new-state
+          (nth 3 result-list)))
+    (setq-local
+     %s-lex-analyzer--index
+     new-index)
+    (setq-local
+     %s-lex-analyzer--state
+     new-state)
+    (list token)))\n"
                namespace
+               namespace
+               namespace
+               namespace
+               namespace
+               namespace
+               ))
+
+      (insert
+       (format "
+(defun %s-lex-analyzer--get-buffered-lex (index state)
+  \"Get next token in stream, use buffer to only call function when needed.\"
+  (unless (gethash
+           index
+           %s-lex-analyzer--buffered-response)
+    (let ((continue t)
+          (tmp-index index)
+          (tmp-state state))
+      (while continue
+        (condition-case error
+            (progn
+              (let* ((result-list
+                      (funcall
+                       %s-lex-analyzer--function
+                       tmp-index
+                       tmp-state))
+                     (tokens
+                      (nth 0 result-list))
+                     (move-to-index-flag
+                      (nth 1 result-list))
+                     (new-state
+                      (nth 2 result-list)))
+                (if move-to-index-flag
+                    (progn
+                      (setq
+                       tmp-index
+                       move-to-index-flag)
+                      (setq
+                       tmp-state
+                       new-state))
+
+                  (if tokens
+
+                      (progn
+                        (unless (listp (car tokens))
+                          (setq tokens (list tokens)))
+
+                        (let* ((first-token (car tokens))
+                               (first-token-start (car (cdr first-token)))
+                               (first-token-end (cdr (cdr first-token))))
+                          (when (< index first-token-start)
+                            (let ((token-start index))
+                              (while (< token-start first-token-start)
+                                (puthash
+                                 token-start
+                                 (list
+                                  first-token
+                                  nil
+                                  first-token-end
+                                  nil)
+                                 %s-lex-analyzer--buffered-response)
+                                (setq
+                                 token-start
+                                 (1+ token-start))))))
+
+                        (dolist (token tokens)
+                          (let ((token-start (car (cdr token)))
+                                (token-end (cdr (cdr token))))
+                            (puthash
+                             token-start
+                             (list token nil token-end new-state)
+                             %s-lex-analyzer--buffered-response))))
+
+                    ;; Fill up look-ahead with EOF-identifier if we found nothing
+                    (puthash
+                     index
+                     (list (list %s--eof-identifier) nil (1+ index) nil)
+                     %s-lex-analyzer--buffered-response))
+
+                  (setq
+                   continue
+                   nil))))"
                namespace
                namespace
                namespace
@@ -345,14 +435,22 @@
                namespace
                namespace
                namespace))
+
       (insert "
-        (error (error
-                \"Lex-analyze failed to pop token at %s, error: %s\"")
-      (insert (format "
-                %s-lex-analyzer--index
-                (car (cdr error))))))
-    (nreverse tokens)))\n"
-                      namespace))
+          (error
+           (error
+            \"Lex-analyze failed to get next token at: %s in state: %s, error: %s\"
+            index
+            state
+            error))))))")
+
+      (insert
+       (format "
+  (gethash
+   index
+   %s-lex-analyzer--buffered-response))\n"
+               namespace
+            ))
 
       (insert "\n\n;;; Functions for Syntax-Analyzer / Parser:\n\n");
 
@@ -499,34 +597,8 @@
     (unless %s--distinct-goto-tables
       (error \"Missing distinct GOTO-tables for grammar!\"))
 
-    (let ((accept)
-          (pre-index 0))
+    (let ((accept))
       (while (not accept)
-
-        ;; Save history when index has changed to enable incremental parsing / translating
-        (when
-            (>
-             %s-lex-analyzer--index
-             pre-index)
-          ;; We make a copy of the hash-table here to avoid passing same
-          ;; hash-table every-time with pointer
-          (let ((translation-symbol-table-list))
-            (maphash
-             (lambda (key value)
-               (push
-                `(,key ,value)
-                translation-symbol-table-list))
-             translation-symbol-table)
-            (push
-             `(,%s-lex-analyzer--index
-               ,pushdown-list
-               ,output
-               ,translation
-               ,translation-symbol-table-list)
-             history)
-            (setq
-             pre-index
-             %s-lex-analyzer--index)))
 
         ;; (1) The look-ahead string u, consisting of the next k input symbols, is determined.
         (let ((look-ahead
@@ -554,9 +626,6 @@
                      (gethash
                       action-table-distinct-index
                       %s--distinct-action-tables)))"
-               namespace
-               namespace
-               namespace
                namespace
                namespace
                namespace

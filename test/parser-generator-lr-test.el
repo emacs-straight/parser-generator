@@ -1,6 +1,6 @@
 ;; parser-generator-lr-test.el --- Tests for LR(k) Parser Generator -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2022  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2024  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -20,16 +20,14 @@
       ;; (message "regular-parse-history: %s" regular-parse-history)
       (let ((history-length (length regular-parse-history))
             (history-index 0)
-            (history)
-            (iterated-history))
+            (history))
         (while (< history-index history-length)
           (setq history (nth history-index regular-parse-history))
           (let ((input-tape-index (nth 0 history))
                 (pushdown-list (nth 1 history))
                 (output (nth 2 history))
                 (translation (nth 3 history))
-                (translation-symbol-table (nth 4 history))
-                (history-list iterated-history))
+                (translation-symbol-table (nth 4 history)))
 
             ;; (message "input-tape-index: %s" input-tape-index)
             ;; (message "pushdown-list: %s" pushdown-list)
@@ -44,8 +42,7 @@
                     pushdown-list
                     output
                     translation
-                    translation-symbol-table
-                    history-list)))
+                    translation-symbol-table)))
               ;; (message "incremental-parse: %s" incremental-parse)
               (should
                (equal
@@ -53,7 +50,6 @@
                 incremental-parse))
               (message "Passed incremental parse test %s" (1+ history-index)))
 
-            (push history iterated-history)
             (setq history-index (1+ history-index))))))))
 
 (defun parser-generator-lr-test--generate-precedence-tables ()
@@ -186,7 +182,7 @@
   (parser-generator-process-grammar)
   (should-error
    (parser-generator-lr-generate-parser-tables))
-  (message "Conflicted grammar caused expected exception")
+  (message "Passed test conflicted grammar caused expected exception")
 
   (setq
    parser-generator--global-attributes
@@ -215,7 +211,7 @@
   (parser-generator-process-grammar)
   (should-error
    (parser-generator-lr-generate-parser-tables))
-  (message "Conflicted grammar caused expected exception 2")
+  (message "Passed test conflicted grammar caused expected exception 2")
 
   (setq
    parser-generator-lr--context-sensitive-precedence-attribute
@@ -265,7 +261,7 @@
    (equal
     '((0 (((a) shift))) (1 (((c) shift))) (2 ((($) reduce 2))) (3 ((($) accept))) (4 (((b) shift))) (5 (((c) shift))) (6 ((($) reduce 4))) (7 ((($) reduce 1))))
     (parser-generator-lr--get-expanded-action-tables)))
-  (message "Grammar not conflicting anymore solution #1")
+  (message "Passed test grammar not conflicting anymore solution #1")
 
   ;; Example parse "a b c"
   ;; stack: 0
@@ -301,7 +297,7 @@
    (equal
     '((0 (((a) shift))) (1 (((c) shift))) (2 ((($) reduce 2))) (3 ((($) accept))) (4 (((b) shift))) (5 (((c) reduce 3))) (6 ((($) reduce 4))) (7 ((($) reduce 1))))
     (parser-generator-lr--get-expanded-action-tables)))
-  (message "Grammar not conflicting anymore solution #2")
+  (message "Passed test grammar not conflicting anymore solution #2")
 
   ;; Example parse "a b c"
   ;; stack: 0
@@ -320,7 +316,7 @@
   ;; Test grammar that can be only solved by using global and context-sensitive attributes
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (with-current-buffer "*buffer*"
        (let ((token))
          (when
@@ -349,8 +345,8 @@
                (setq
                 token
                 `(,symbol ,(match-beginning 0) . ,(match-end 0)))))
-            (t (error "Unexpected input at %d!" index))))
-         token))))
+            (t (error "Unexpected input at %d!" index)))
+           (list token))))))
 
   (setq
    parser-generator-lex-analyzer--get-function
@@ -410,7 +406,7 @@
   (parser-generator-process-grammar)
   (should-error
    (parser-generator-lr-generate-parser-tables))
-  (message "Grammar caused expected conflict 3")
+  (message "Passed test grammar caused expected conflict 3")
 
   (setq
    parser-generator-lr--global-precedence-attributes
@@ -419,7 +415,7 @@
    parser-generator-lr--context-sensitive-precedence-attribute
    '%prec)
   (parser-generator-lr-generate-parser-tables)
-  (message "Grammar not conflict anymore")
+  (message "Passed test grammar not conflicting anymore")
 
   ;; Parse: 1+1*2\n
   ;;
@@ -460,12 +456,13 @@
        (equal
         '(1 5 5 5 8 6 4 2)
         parse)))
+    (message "Passed parse with correct precedence of 2+3*5 = 2+(3*5)")
     (let ((translate (parser-generator-lr-translate)))
       (should
        (equal
         17.0
         translate)))
-    (message "Passed correct precedence of 2+3*5 = 2+(3*5) = 17")
+    (message "Passed translation with correct precedence of 2+3*5 = 2+(3*5) = 17")
 
     (kill-region (point-min) (point-max))
     (insert "2*3+5\n")
@@ -557,6 +554,15 @@
         4.0
         translate)))
     (message "Passed correct precedence of 10/5+2 => (10/5)+2 = 4")
+
+    (kill-region (point-min) (point-max))
+    (insert "-55\n")
+    (let ((translate (parser-generator-lr-translate)))
+      (should
+       (equal
+        -55.0
+        translate)))
+    (message "Passed correct precedence of -55")
 
     (kill-region (point-min) (point-max))
     (insert "- 55\n")
@@ -937,7 +943,7 @@
   (parser-generator-lr-generate-parser-tables)
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (let* ((string '((a 1 . 2) (a 2 . 3) (b 3 . 4) (b 4 . 5)))
             (string-length (length string))
             (max-index index)
@@ -947,7 +953,7 @@
                (< (1- index) max-index))
          (push (nth (1- index) string) tokens)
          (setq index (1+ index)))
-       (nreverse tokens))))
+       (list (car tokens) nil index nil))))
   (setq
    parser-generator-lex-analyzer--get-function
    (lambda (token)
@@ -960,7 +966,7 @@
 
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (let* ((string '((a 1 . 2) (a 2 . 3) (b 3 . 4) (b 4 . 5) (b 5 . 6)))
             (string-length (length string))
             (max-index index)
@@ -970,7 +976,8 @@
                (< (1- index) max-index))
          (push (nth (1- index) string) tokens)
          (setq index (1+ index)))
-       (nreverse tokens))))
+       (list (car tokens) nil index nil))))
+
   (should-error
    (parser-generator-lr--parse t))
   (message "Passed test with terminals as symbols, invalid syntax")
@@ -985,9 +992,10 @@
   (parser-generator--debug
    (message "goto-tables: %s" (parser-generator-lr--get-expanded-goto-tables))
    (message "action-tables: %s" (parser-generator-lr--get-expanded-action-tables)))
+
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (let* ((string '(("a" 1 . 2) ("a" 2 . 3) ("b" 3 . 4) ("b" 4 . 5)))
             (string-length (length string))
             (max-index index)
@@ -997,7 +1005,8 @@
                (< (1- index) max-index))
          (push (nth (1- index) string) tokens)
          (setq index (1+ index)))
-       (nreverse tokens))))
+       (list (car tokens) nil index nil))))
+
   (should
    (equal
     '(2 2 2 1 1)
@@ -1006,7 +1015,7 @@
 
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (let* ((string '(("a" 1 . 2) ("a" 2 . 3) ("b" 3 . 4) ("b" 4 . 5) ("b" 5 . 6)))
             (string-length (length string))
             (max-index index)
@@ -1016,14 +1025,15 @@
                (< (1- index) max-index))
          (push (nth (1- index) string) tokens)
          (setq index (1+ index)))
-       (nreverse tokens))))
+       (list (car tokens) nil index nil))))
+
   (should-error
    (parser-generator-lr--parse t))
   (message "Passed test with terminals as string, invalid syntax")
 
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (let* ((string '(("a" 1 . 2) ("a" 2 . 3) ("b" 3 . 4) ("b" 4 . 5)))
             (string-length (length string))
             (max-index index)
@@ -1033,7 +1043,7 @@
                (< (1- index) max-index))
          (push (nth (1- index) string) tokens)
          (setq index (1+ index)))
-       (nreverse tokens))))
+       (list (car tokens) nil index nil))))
 
   (parser-generator-lr-test--parse-incremental-vs-regular)
   (message "Passed incremental-tests")
@@ -1082,16 +1092,18 @@
   (parser-generator-set-look-ahead-number 1)
   (parser-generator-process-grammar)
   (parser-generator-lr-generate-parser-tables)
+
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (with-current-buffer "*PHP8.0*"
-       (let ((token))
+       (let ((token)
+             (move-to-index-flag))
          (goto-char index)
          (cond
           ((looking-at "[ \n\t]+")
            (setq
-            parser-generator-lex-analyzer--move-to-index-flag
+            move-to-index-flag
             (match-end 0)))
           ((or
             (looking-at "{")
@@ -1146,8 +1158,8 @@
             )
            )
           )
-         token
-         ))))
+         (list token move-to-index-flag (match-end 0) nil)))))
+
   (let ((buffer (generate-new-buffer "*PHP8.0*")))
     (with-current-buffer buffer
       (kill-region (point-min) (point-max))
@@ -1203,16 +1215,18 @@
   (parser-generator-set-look-ahead-number 1)
   (parser-generator-process-grammar)
   (parser-generator-lr-generate-parser-tables)
+  
   (setq
    parser-generator-lex-analyzer--function
-   (lambda (index)
+   (lambda (index _state)
      (with-current-buffer "*PHP8.0*"
-       (let ((token))
+       (let ((token)
+             (move-to-index-flag))
          (goto-char index)
          (cond
           ((looking-at "[ \n\t]+")
            (setq
-            parser-generator-lex-analyzer--move-to-index-flag
+            move-to-index-flag
             (match-end 0)))
           ((looking-at "\\(\".+\"\\)")
            (setq
@@ -1261,8 +1275,8 @@
             )
            )
           )
-         token
-         ))))
+         (list token move-to-index-flag (match-end 0) nil)))))
+
   (let ((buffer (generate-new-buffer "*PHP8.0*")))
     (with-current-buffer buffer
       (kill-region (point-min) (point-max))
@@ -1520,13 +1534,14 @@
     ;; Setup lex-analyzer
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer buffer
          (when (<= (+ index 1) (point-max))
            (let ((start index)
                  (end (+ index 1)))
              (let ((token (buffer-substring-no-properties start end)))
-               `(,token ,start . ,end)))))))
+               (list `(,token ,start . ,end) nil end nil)))))))
+
     (setq
      parser-generator-lex-analyzer--get-function
      (lambda (token)
@@ -1581,13 +1596,13 @@
     ;; Setup lex-analyzer
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer buffer
          (when (<= (+ index 1) (point-max))
            (let ((start index)
                  (end (+ index 1)))
              (let ((token (buffer-substring-no-properties start end)))
-               `(,token ,start . ,end)))))))
+               (list `(,token ,start . ,end) nil end nil)))))))
     (setq
      parser-generator-lex-analyzer--get-function
      (lambda (token)
@@ -1794,13 +1809,14 @@
     ;; Setup lex-analyzer
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer buffer
          (when (<= (+ index 1) (point-max))
            (let ((start index)
                  (end (+ index 1)))
              (let ((token (buffer-substring-no-properties start end)))
-               `(,token ,start . ,end)))))))
+               (list `(,token ,start . ,end) nil end nil)))))))
+
     (setq
      parser-generator-lex-analyzer--get-function
      (lambda (token)
@@ -1841,8 +1857,12 @@
        (
         (S (E $))
         (E
-         (E "*" B (lambda(args _terminals) (let ((ret (list (nth 0 args)))) (when (nth 2 args) (setq ret (append ret `(" x " ,(nth 2 args))))) ret)))
-         (E "+" B (lambda(args _terminals) (let ((ret (list (nth 0 args)))) (when (nth 2 args) (setq ret (append ret `(" . " ,(nth 2 args))))) ret)))
+         (E "*" B
+            (lambda(args _terminals)
+              (let ((ret (list (nth 0 args)))) (when (nth 2 args) (setq ret (append ret `(" x " ,(nth 2 args))))) ret)))
+         (E "+" B
+            (lambda(args _terminals)
+              (let ((ret (list (nth 0 args)))) (when (nth 2 args) (setq ret (append ret `(" . " ,(nth 2 args))))) ret)))
          (B)
          )
         (B
@@ -1857,13 +1877,14 @@
     ;; Setup lex-analyzer
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer buffer
          (when (< index (point-max))
            (let ((start index)
                  (end (+ index 1)))
              (let ((token (buffer-substring-no-properties start end)))
-               `(,token ,start . ,end)))))))
+               (list `(,token ,start . ,end) nil end nil)))))))
+
     (setq
      parser-generator-lex-analyzer--get-function
      (lambda (token)
@@ -1899,7 +1920,15 @@
       ("a" "b")
       (
        (Sp S)
-       (S (S "a" S "b" (lambda(args _terminals) (let ((list "")) (dolist (item args) (when item (setq list (format "%s%s" item list)))) list))))
+       (S
+        (S "a" S "b"
+           (lambda(args _terminals)
+             (let ((list ""))
+               (dolist (item args)
+                 (when item
+                   (setq list (format "%s%s" item list)))
+                 )
+               list))))
        (S e)
        )
       Sp))
@@ -1910,13 +1939,13 @@
 
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer buffer
          (when (<= (+ index 1) (point-max))
            (let ((start index)
                  (end (+ index 1)))
              (let ((token (buffer-substring-no-properties start end)))
-               `(,token ,start . ,end)))))))
+               (list `(,token ,start . ,end) nil end nil)))))))
 
     (setq
      parser-generator-lex-analyzer--get-function
@@ -1957,7 +1986,7 @@
 
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer buffer
          (unless (>= index (point-max))
            (goto-char index)
@@ -1983,7 +2012,7 @@
               ((looking-at "[a-zA-Z]+")
                (setq token `(VARIABLE ,(match-beginning 0) . ,(match-end 0))))
               (t (error "Invalid syntax! Could not lex-analyze at %s!" (point))))
-             token)))))
+             (list token nil (match-end 0) nil))))))
 
     (setq
      parser-generator-lex-analyzer--get-function
@@ -2060,7 +2089,7 @@
 
     (setq
      parser-generator-lex-analyzer--function
-     (lambda (index)
+     (lambda (index _state)
        (with-current-buffer "*a*"
          (unless (>= index (point-max))
            (goto-char index)
@@ -2084,7 +2113,7 @@
               ((looking-at "[a-zA-Z]+")
                (setq token `(VARIABLE ,(match-beginning 0) . ,(match-end 0))))
               (t (error "Invalid syntax! Could not lex-analyze at %s!" (point))))
-             token)))))
+             (list token nil (match-end 0) nil))))))
 
     (setq
      parser-generator-lex-analyzer--get-function
@@ -2104,8 +2133,8 @@
 
 (defun parser-generator-lr-test ()
   "Run test."
-  ;; (setq debug-on-error nil)
-  ;; (setq debug-on-signal nil)
+  (setq debug-on-error nil)
+  (setq debug-on-signal nil)
 
   (parser-generator-lr-test--items-for-prefix)
   (parser-generator-lr-test--items-valid-p)
