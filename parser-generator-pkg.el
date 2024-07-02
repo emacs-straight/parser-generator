@@ -1,2 +1,0 @@
-;; Generated package description from parser-generator.el  -*- no-byte-compile: t -*-
-(define-package "parser-generator" "0.2.1.0.20240220.204114" "Parser Generator library" '((emacs "26")) :commit "0d4b9a42ea207bfa6c995c9cf5834c4bf68b9c44" :authors '(("Christian Johansson" . "christian@cvj.se")) :maintainer '("Christian Johansson" . "christian@cvj.se") :keywords '("tools" "convenience") :url "https://github.com/cjohansson/emacs-parser-generator")

@@ -1,0 +1,6 @@
+.DS_Store
+.dir-locals.el
+flycheck_*
+.tern-port
+*.elc
+test-*.el*
