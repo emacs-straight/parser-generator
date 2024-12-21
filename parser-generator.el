@@ -5,8 +5,8 @@
 ;; Author: Christian Johansson <christian@cvj.se>
 ;; Maintainer: Christian Johansson <christian@cvj.se>
 ;; Created: 10 Oct 2020
-;; Modified: 14 Dec 2024
-;; Version: 0.2.3
+;; Modified: 20 Dec 2024
+;; Version: 0.2.4
 ;; Keywords: tools, convenience
 ;; URL: https://github.com/cjohansson/emacs-parser-generator
 
@@ -523,12 +523,6 @@ Each element is a list: (list key value), optionally UN-SORTED."
                  (nth
                   rhs-element-index
                   rhs))
-                (when (functionp rhs-element)
-                  (error
-                   "Unexpected function element %s in RHS %s of LHS %s"
-                   rhs-element
-                   rhs
-                   lhs))
 
                 ;; Potentially each symbol in RHS could be a separate RHS
                 (unless (listp rhs-element)
