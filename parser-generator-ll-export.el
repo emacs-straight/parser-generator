@@ -1,6 +1,6 @@
 ;;; parser-generator-ll-export.el --- Export LL(k) Parser -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2024  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2025  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -167,16 +167,16 @@
        (format
         "(defvar\n  %s-lex-analyzer--get-function\n  (lambda %S %S)\n  \"The lex-analyzer get function.\")\n\n"
         namespace
-        (nth 2 parser-generator-lex-analyzer--get-function)
-        (nth 3 parser-generator-lex-analyzer--get-function)))
+        (aref parser-generator-lex-analyzer--get-function 0)
+        (car (aref parser-generator-lex-analyzer--get-function 1))))
 
       ;; Lex-Analyzer Function
       (insert
        (format
         "(defvar\n  %s-lex-analyzer--function\n  (lambda %S %S)\n  \"The lex-analyzer function.\")\n\n"
         namespace
-        (nth 2 parser-generator-lex-analyzer--function)
-        (nth 3 parser-generator-lex-analyzer--function)))
+        (aref parser-generator-lex-analyzer--function 0)
+        (car (aref parser-generator-lex-analyzer--function 1))))
 
       ;; Lex-Analyzer Reset Function
       (insert
@@ -187,8 +187,8 @@
           (insert
            (format
             "(lambda %S %S)\n"
-            (nth 2 parser-generator-lex-analyzer--reset-function)
-            (nth 3 parser-generator-lex-analyzer--reset-function)))
+            (aref parser-generator-lex-analyzer--reset-function 0)
+            (car (aref parser-generator-lex-analyzer--reset-function 1))))
         (insert "nil\n"))
       (insert "  \"The lex-analyzer reset function.\")\n\n")
 
@@ -811,26 +811,35 @@
 
     (if (%s--get-grammar-translation-by-number
          production-number)
-        (let ((partial-translation
-               (funcall
-                (%s--get-grammar-translation-by-number
-                 production-number)
-                args-1
-                args-2))
-              (old-symbol-value
-               (gethash production-lhs symbol-table)))
-          (push
-           (list
-            partial-translation
-            args-2)
-           old-symbol-value)
-          (puthash
-           production-lhs
-           old-symbol-value
-           symbol-table)
-          (setq
-           translation
-           partial-translation))
+        (condition-case conditions
+          (let ((partial-translation
+                 (funcall
+                  (%s--get-grammar-translation-by-number
+                   production-number)
+                  args-1
+                  args-2))
+                (old-symbol-value
+                 (gethash production-lhs symbol-table)))
+            (push
+             (list
+              partial-translation
+              args-2)
+             old-symbol-value)
+            (puthash
+             production-lhs
+             old-symbol-value
+             symbol-table)
+            (setq
+             translation
+             partial-translation))
+(error
+           (signal
+            'error
+            (list
+             (format
+              \"Failed AST translation for production %%S with error: %%S\"
+              production-number
+              conditions)))))
 
       ;; When no translation is specified just use popped contents as translation
       (let ((partial-translation

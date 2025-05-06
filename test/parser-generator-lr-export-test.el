@@ -1,6 +1,6 @@
 ;;; parser-generator-lr-export-test.el --- Tests for LR(k) Parser Export -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2024  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2025  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -194,8 +194,7 @@
 
   ;; Export parser
   (let ((export (parser-generator-lr-export-to-elisp "e")))
-    (parser-generator--debug
-     (message "export:\n%S\n" export))
+     (message "export:\n%S\n" export)
 
     (with-temp-buffer
       (insert export)
