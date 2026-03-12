@@ -1,12 +1,12 @@
 ;;; parser-generator.el --- Parser Generator library -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2025  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2026  Free Software Foundation, Inc.
 
 ;; Author: Christian Johansson <christian@cvj.se>
 ;; Maintainer: Christian Johansson <christian@cvj.se>
 ;; Created: 10 Oct 2020
-;; Modified: 25 Dec 2025
-;; Version: 0.2.8
+;; Modified: 5 Jan 2025
+;; Version: 0.2.9
 ;; Keywords: tools, convenience
 ;; URL: https://github.com/cjohansson/emacs-parser-generator
 

@@ -1,6 +1,6 @@
 ;;; parser-generator-lr-export.el --- Export LR(k) Parser -*- lexical-binding: t -*-
 
-;; Copyright (C) 2020-2025  Free Software Foundation, Inc.
+;; Copyright (C) 2020-2026  Free Software Foundation, Inc.
 
 
 ;;; Commentary:
@@ -157,9 +157,11 @@
       ;; Lex-Analyzer Initial State
       (insert
        (format
-        "(defvar\n  %s-lex-analyzer--state-init\n  %S\n  \"Initial value of state.\")\n\n"
+        "(defvar\n  %s-lex-analyzer--state-init\n  %s\n  \"Initial value of state.\")\n\n"
         namespace
-        parser-generator-lex-analyzer--state-init))
+        (if parser-generator-lex-analyzer--state-init
+            (format "'%S" parser-generator-lex-analyzer--state-init)
+          "nil")))
 
       (insert "\n;;; Buffer-Local Variables:\n\n\n")
 
